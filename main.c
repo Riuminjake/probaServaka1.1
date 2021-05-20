@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <time.h>
 #pragma comment(lib, "Ws2_32.lib")
-#define PORT 9034
+#define PORT 1000
 #define BUFLEN 4096
 #define STRED_X 60
 void vipis();
@@ -26,7 +26,7 @@ int main() {
     XY.X=0;
     XY.Y=0;
     hConsole= GetStdHandle(STD_OUTPUT_HANDLE);
-    SetConsoleTextAttribute(hConsole,2);
+    SetConsoleTextAttribute(hConsole,7);
     WSADATA proba;
     SOCKET w;
     SOCKET new_w;
@@ -37,7 +37,7 @@ int main() {
     ZeroMemory (&adress,sizeof(adress));
     ZeroMemory (&new_adress,sizeof(new_adress));
     adress.sin_family=AF_INET;
-    adress.sin_addr.S_un.S_addr=inet_addr("192.168.1.166");
+    adress.sin_addr.S_un.S_addr=inet_addr("192.168.1.160");
     adress.sin_port=htons(PORT);
     if (0!=(iResult=WSAStartup(MAKEWORD(2,2),&proba))) {
         printf("WSAStartup failed: %d\\n", iResult);
@@ -45,13 +45,25 @@ int main() {
     }
     if (INVALID_SOCKET==(w=socket(AF_INET,SOCK_STREAM,0)))
         return WSAGetLastError();
-    if (SOCKET_ERROR==bind(w,(struct sockaddr*)&adress,sizeof (adress)))
-        return E_FAIL;
-    if (FAILED(listen(w,10)))
-        return E_FAIL;
-    ZeroMemory (&new_adress,sizeof(new_adress));
-    if (FAILED(new_w=accept(w,(struct sockaddr*)&new_adress,&new_len))) {
-        perror("accept");}
+    if (-1==(connect(w,(struct sockaddr*)&adress,sizeof(adress)))) {
+        ZeroMemory (&adress,sizeof(adress));
+        adress.sin_family=AF_INET;
+        adress.sin_addr.S_un.S_addr=inet_addr("192.168.1.166");
+        adress.sin_port=htons(PORT);
+        if (SOCKET_ERROR == bind(w, (struct sockaddr *) &adress, sizeof(adress)))
+            return E_FAIL;
+        if (FAILED(listen(w, 10)))
+            return E_FAIL;
+        ZeroMemory (&new_adress, sizeof(new_adress));
+        if (FAILED(new_w = accept(w, (struct sockaddr *) &new_adress, &new_len))) {
+            perror("accept");
+        }
+    }
+    else {
+        new_w = w;
+        printf("Connected to server!\n");
+        XY.Y++;
+    }
     int z=0;
     pthread_t thread_id;
     do {
@@ -66,6 +78,8 @@ int main() {
             //pthread_join(thread_id, NULL);
         }
     }while(z>0);
+    pthread_join(thread_id, NULL);//конец разветвления программы
+    closesocket(w);
     closesocket(new_w);
     WSACleanup();
     return 0;
@@ -76,42 +90,47 @@ void *zapis(){
 }
 
 char prislo(SOCKET *ConnectSocket) {
+    SetConsoleTextAttribute(hConsole,7);
     char recvbuf[BUFLEN];
+    BOOL odin_raz=FALSE;
     if (SOCKET_ERROR==ioctlsocket(*ConnectSocket,FIONBIO,(unsigned long*)&l))
         return 0;
+    do{
     iResult = recv(*ConnectSocket, recvbuf, BUFLEN, 0);
     if ( iResult > 0 ){
-        XY.X=STRED_X;
-        XY.Y+=2;
-        SetConsoleCursorPosition(hConsole, XY);
-        printf("Bytes received: %d\n", iResult);//prisli validne data, vypis poctu
-        XY.Y++;
-        SetConsoleCursorPosition(hConsole, XY);
-        t= time(NULL);
-        aTm= localtime(&t);
-        printf("%s",asctime(aTm));
-        XY.Y++;
-        SetConsoleCursorPosition(hConsole, XY);
-        printf("Morpheus:");
-        XY.Y++;
+        if (odin_raz==FALSE){
+            XY.X=STRED_X;
+            XY.Y+=2;
+            // printf("Bytes received: %d\n", iResult);//prisli validne data, vypis poctu
+            // XY.Y++;
+            SetConsoleCursorPosition(hConsole, XY);
+            t= time(NULL);
+            aTm= localtime(&t);
+            printf("%s",asctime(aTm));
+            XY.Y++;
+            SetConsoleCursorPosition(hConsole, XY);
+            printf("Morpheus:");
+            XY.Y++;
+            odin_raz=TRUE;
+        }
         recvbuf[iResult]='\0';
         vipis(recvbuf,60,iResult);
-        return 1;
     }
     else if ( iResult == 0 ) {
         printf("Connection closed\n");    //v tomto pripade server ukoncil komunikaciu
         return 0;
-    }
+    }}while(iResult>0);
     return 1;
 }
 char uslo(SOCKET *ConnectSocket) {
-    printf("Neo:\n");
-    XY.Y++;
-    t= time(NULL);
-    aTm= localtime(&t);
-    printf("%s",asctime(aTm));
-    XY.Y++;
-    XY.Y++;
+    SetConsoleTextAttribute(hConsole,7);
+    //printf("Neo:\n");
+   // XY.Y++;
+  //  t= time(NULL);
+  //  aTm= localtime(&t);
+  //  printf("%s",asctime(aTm));
+   // XY.Y++;
+     XY.Y++;
     iResult = send(*ConnectSocket, zapiska, (int) strlen(zapiska), 0);
     if (iResult == SOCKET_ERROR) {
         printf("send failed: %d\n", WSAGetLastError());
@@ -120,13 +139,14 @@ char uslo(SOCKET *ConnectSocket) {
         WSACleanup();
         return 1;
     }
-    printf("Bytes Sent: %ld\n", iResult);     //vypisanie poctu odoslanych dat
-    XY.Y++;
+    //printf("Bytes Sent: %ld\n", iResult);     //vypisanie poctu odoslanych dat
+   // XY.Y++;
     return 1;
 }
 
 
 void vipis (char* recvbuf,int x,int velkost){
+    SetConsoleTextAttribute(hConsole,2);
     setlocale(LC_ALL, "");
     XY.X=x;
     char bukva;
@@ -164,17 +184,3 @@ void vipis (char* recvbuf,int x,int velkost){
     }
     printf("\n");
 }
-/*   if (NULL==(ht=gethostbyname("qastack.ru")))
-       a = WSAGetLastError();
-   adress.sin_addr.S_un.S_addr=((struct in_addr*)ht->h_addr_list[0])->s_addr;
-   adress.sin_family=AF_INET;
-   adress.sin_port=htons(80);*/
-/*if (FAILED(new_w=accept(w,(struct sockaddr*)&new_adress,&new_len))) {
-perror("accept");}
-if (SOCKET_ERROR==(send(new_w,(char*)&stroka,6,0)))
-a = WSAGetLastError();
-if (SOCKET_ERROR==(a=recv(new_w,(char*) & priem,4000,0)))
-a = WSAGetLastError();
-for (int i=0;i<a;i++){
-printf("%c",priem[i]);
-}*/
