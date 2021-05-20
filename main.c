@@ -47,6 +47,9 @@ int main() {
         return WSAGetLastError();
     if (-1==(connect(w,(struct sockaddr*)&adress,sizeof(adress)))) {
         ZeroMemory (&adress,sizeof(adress));
+        closesocket(w);
+        if (INVALID_SOCKET==(w=socket(AF_INET,SOCK_STREAM,0)))
+            return WSAGetLastError();
         adress.sin_family=AF_INET;
         adress.sin_addr.S_un.S_addr=inet_addr("192.168.1.166");
         adress.sin_port=htons(PORT);
@@ -85,8 +88,12 @@ int main() {
     return 0;
 }
 void *zapis(){
-    fgets(zapiska,4000,stdin);
-    return NULL;
+    char b[100];
+    char* z=NULL;
+    do {
+        z=fgets(b, 4000, stdin);
+        strcat(zapiska,z);
+    }while(z!=NULL);
 }
 
 char prislo(SOCKET *ConnectSocket) {
@@ -178,9 +185,16 @@ void vipis (char* recvbuf,int x,int velkost){
                 SetConsoleCursorPosition(hConsole, XY);
             }
         }
-        SetConsoleCursorPosition(hConsole, XY);
-        printf("%c",recvbuf[i]);
-        XY.X++;
+        if (recvbuf[i]=='\n')
+        {
+            XY.Y++;
+            c=x;            
+        }
+        else {
+            SetConsoleCursorPosition(hConsole, XY);
+            printf("%c", recvbuf[i]);
+            XY.X++;
+        }
     }
     printf("\n");
 }
